@@ -168,9 +168,30 @@ dim(omit_data.test) #32,8
 ## Lasso regression
 par(mfrow=c(1,2))
 lasso.mod=glmnet(y=y.train,x=x.train,alpha=1)
-plot(lasso.mod)
+plot(lasso.mod,label=TRUE)
 lasso.cv=cv.glmnet(x.train,y.train,alpha=1) # 10-fold cross validation
 plot(lasso.cv) 
+
+########
+# lable variables 1
+library(plotmo)
+plot_glmnet(lasso.mod,label=TRUE,s=lasso.cv$lambda.min)
+
+
+# lable variables 2
+lbs_fun <- function(fit, ...) {
+  L <- length(fit$lambda)
+  x <- log(fit$lambda[L])
+  y <- fit$beta[, L]
+  labs <- names(y)
+  text(x, y, labels=labs, ...)
+  #legend('topright', legend=labs, col=1:length(labs), lty=1) 
+}
+plot(lasso.mod, xvar="lambda", col=1:dim(coef(lasso.mod))[1])
+lbs_fun(lasso.mod)
+
+#######
+
 
 bestlam<-lasso.cv$lambda.min
 bestlam ## Select lamda that minimizes training MSE
