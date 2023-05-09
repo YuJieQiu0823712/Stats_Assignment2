@@ -175,7 +175,7 @@ plot(lasso.cv)
 ########
 # lable variables 1
 library(plotmo)
-plot_glmnet(lasso.mod,label=TRUE,s=lasso.cv$lambda.min)
+plot_glmnet(lasso.mod,label=TRUE,xvar="lambda",s=lasso.cv$lambda.min)
 
 
 # lable variables 2
