@@ -198,11 +198,43 @@ bestlam ## Select lamda that minimizes training MSE
 min(lasso.cv$cvm)
 # bestlam = 0.7 results in the smallest cross-validation error 643
 
+
 # Prediction and evaluation on test data
 lasso.pred=predict(lasso.mod,s=bestlam,newx=x.test)
 mean((lasso.pred-y.test)^2)
 # the test MSE = 750
 
+lasso.pred.train=predict(lasso.mod,s=bestlam,newx=x.train)
+mean((lasso.pred.train-y.train)^2)
+# training MSE = 468
+
+
+
+##### Lasso regression with LOOCV ####
+par(mfrow=c(1,2))
+lasso.mod=glmnet(y=y.train,x=x.train,alpha=1)
+plot(lasso.mod)
+lasso.cv=cv.glmnet(x.train,y.train,alpha=1, nfolds=96) # 96-fold cross validation
+plot(lasso.cv) 
+
+bestlam<-lasso.cv$lambda.min
+bestlam ## Select lamda that minimizes training MSE
+min(lasso.cv$cvm)
+# bestlam = 0.5 results in the smallest cross-validation error 651
+
+
+# Prediction and evaluation on test data
+lasso.pred=predict(lasso.mod,s=bestlam,newx=x.test)
+mean((lasso.pred-y.test)^2)
+# the test MSE = 757
+
+lasso.pred.train=predict(lasso.mod,s=bestlam,newx=x.train)
+mean((lasso.pred.train-y.train)^2)
+# the training MSE = 465
+
+
+
+###############not use this
 ## linear regression
 linear.mod=lm(y.train~x.train)
 summary(linear.mod)
@@ -216,9 +248,13 @@ linear.pred=predict(linear.mod,newx=x.test)
 mean((y.test-linear.pred)^2)
 # the test MSE = 2658
 
-# the MSE of the linear model (2658) is larger than the lasso model (761)
+# the MSE of the linear model (2658) is larger than the lasso model (750)
 # => the variance of lasso modle is smaller. 
 # => there is no over-learning issue.
+##############
+
+
+
 
 
 
