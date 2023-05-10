@@ -127,6 +127,56 @@ shapiro.test(res) # p<0.05 => not normal distribution
 ############
 
 
+####poly transformation####
+attach(omit_data)
+omit_data_poly.lm1 <- lm(Cscore~age+svi+poly(lweight,2,raw=TRUE)+poly(lcavol,2,raw=TRUE)+poly(lbph,2,raw=TRUE)+
+                           poly(lcp,2,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
+omit_data_poly.lm2 <- lm(Cscore~age+svi+lweight+lbph+poly(lcavol,2,raw=TRUE)+
+                           poly(lcp,2,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
+omit_data_poly.lm3 <- lm(Cscore~ svi+poly(lcavol,2,raw=TRUE)+poly(lcp,2,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
+omit_data_poly.lm4 <- lm(Cscore~ poly(lcp,1,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
+
+
+summary(omit_data_poly.lm1)
+#lcp,lpsa,lpsa^2,lbph
+#residual = 17.3 (< not log transform, >log transformation), r2 = 0.81 (> not log transform, >>log transformation)
+summary(omit_data_poly.lm2)
+#lcp,lpsa,lpsa^2
+#residual = 17.7 (< not log transform, >log transformation), r2 = 0.8 (> not log transform, >>log transformation)
+summary(omit_data_poly.lm3)
+#lcp,lpsa,lpsa^2
+#residual = 17.7 (< not log transform, >log transformation), r2 = 0.8 (> not log transform, >>log transformation)
+summary(omit_data_poly.lm4)
+#lcp,lpsa
+#residual = 17.6 (< not log transform, >log transformation), r2 = 0.8 (> not log transform, >>log transformation)
+
+anova(omit_data_all_poly.lm,omit_data_all_poly.lm2,omit_data_all_poly.lm3,omit_data_all_poly.lm4)
+#omit_data_all_poly.lm2 is the best => but there are too many variables (difficult interpretation)
+#=> I prefer omit_data_all_poly.lm4  => low residual error, and high adj r2
+
+#residual
+par(mfrow=c(2,3))
+plot(omit_data_poly.lm4) 
+res <- resid(omit_data_poly.lm4)
+plot(density(res))
+shapiro.test(res) # p>0.05 => normal distribution
+
+######try to make polynomial transform in lpsa variable
+omit_data_poly <- omit_data
+omit_data_poly$lpsa2 = omit_data_poly$lpsa^2
+
+omit_data_poly.lm <- lm(Cscore~ lcp+lpsa+lpsa2,data=omit_data_poly)
+summary(omit_data_poly.lm)
+#lcp,lpsa,lpsa^2
+#residual = 17.3 (< not log transform, >log transformation), r2 = 0.81 (> not log transform, >>log transformation)
+
+
+
+
+
+
+
+
 
 ## best Subset Selection 
 best <- regsubsets(Cscore~.,data=omit_data)
@@ -178,6 +228,78 @@ summary(data.lm.omit)
 
 # They all select the same variables: 
 # lcp,lpsa
+
+
+
+
+############polynomial transform
+## best Subset Selection (polynomial transform)
+attach(omit_data_poly)
+best <- regsubsets(Cscore~.,data=omit_data_poly)
+bestSUM <- summary(best)
+
+par(mfrow=c(1,2))
+plot(bestSUM$bic,type="b",ylab="BIC",main ="Best Subset Selection")
+points(3,bestSUM$bic[3], col ="red",cex =2, pch =20) 
+plot(best, scale="bic",main ="Best Subset Selection")
+which.min(bestSUM$bic)
+co=coef(best,3)
+names(co)
+coef(best, 3) 
+# 6.18  -20  8.9  
+# => lcp,lpsa,lpsa^2
+
+## forward selection (polynomial transform)
+fwd <- regsubsets(Cscore~.,data=omit_data_poly,method="forward")
+fwdSUM <- summary(fwd)
+plot(fwdSUM$bic,type="b",ylab="BIC",main ="Forward selection")
+points(3,fwdSUM$bic[3], col ="red",cex =2, pch =20) 
+plot(fwd, scale="bic",main ="Forward selection")
+which.min(fwdSUM$bic)
+co=coef(fwd,3)
+names(co)
+coef(fwd, 3) 
+# 6.18  -20  8.9  
+# => lcp,lpsa,lpsa^2
+
+## backward selection (polynomial transform)
+bwd <- regsubsets(Cscore~.,data=omit_data_poly,method="backward")
+bwdSUM <- summary(bwd)
+plot(bwdSUM$bic,type="b",ylab="BIC",main ="Backward selection")
+points(3,bwdSUM$bic[3], col ="red",cex =2, pch =20) 
+plot(bwd, scale="bic",main ="Backward selection")
+which.min(bwdSUM$bic)
+co=coef(bwd,3)
+names(co)
+coef(bwd, 3) 
+# 6.18  -20  8.9  
+# => lcp,lpsa,lpsa^2
+
+#no log transform
+data.lm.omit = lm(Cscore ~ lcp + lpsa, data = omit_data)
+summary(data.lm.omit) 
+#8.5 21.2
+#lcp,lpsa
+#residual = 24, r2 = 0.62
+
+#log transform
+data.log.lm.omit = lm(Cscore ~ lcp + lpsa, data = omit_data_log)
+summary(data.log.lm.omit) 
+#0.15 0.38
+#lcp,lpsa
+#residual = 0.56, r2 = 0.49
+
+#repeat code
+omit_data_poly.lm <- lm(Cscore ~lcp + lpsa+lpsa2, data=omit_data_poly)
+summary(omit_data_poly.lm)
+# 6.18  -20   8.9
+# lcp, lpsa, lpsa^2
+#residual = 17.65, r2 = 0.8
+
+
+
+
+
 
 
 ## 3 Make an appropriate LASSO model, with the appropriate link and error function, and
@@ -263,6 +385,78 @@ mean((lasso.pred-y.test)^2)
 lasso.pred.train=predict(lasso.mod,s=bestlam,newx=x.train)
 mean((lasso.pred.train-y.train)^2)
 # the training MSE = 465
+
+
+
+
+################polynomial transform
+set.seed(1)
+train=sample(1:nrow(omit_data_poly), nrow(omit_data_poly)*2/3)
+test=(-train)
+x=model.matrix(Cscore~.,omit_data_poly)[,-1] #delete Cscore column
+y=omit_data_poly$Cscore
+y.train=y[train]
+y.test=y[test]
+x.train=x[train,]
+x.test=x[test,]
+omit_data_poly.train=omit_data_poly[train,]
+omit_data_poly.test=omit_data_poly[test,]
+dim(omit_data_poly.train) #64,9
+dim(omit_data_poly.test) #32,9
+
+## Lasso regression
+par(mfrow=c(1,2))
+lasso.mod=glmnet(y=y.train,x=x.train,alpha=1)
+plot(lasso.mod)
+lasso.cv=cv.glmnet(x.train,y.train,alpha=1) # 10-fold cross validation
+plot(lasso.cv) 
+
+bestlam<-lasso.cv$lambda.min
+bestlam ## Select lamda that minimizes training MSE
+min(lasso.cv$cvm)
+# bestlam = 0.25 results in the smallest cross-validation error 380
+
+
+# Prediction and evaluation on test data
+lasso.pred=predict(lasso.mod,s=bestlam,newx=x.test)
+mean((lasso.pred-y.test)^2)
+# the test MSE = 308
+
+lasso.pred.train=predict(lasso.mod,s=bestlam,newx=x.train)
+mean((lasso.pred.train-y.train)^2)
+# training MSE = 286
+
+
+
+##### Lasso regression with LOOCV (polynomial)####
+par(mfrow=c(1,2))
+lasso.mod=glmnet(y=y.train,x=x.train,alpha=1)
+plot(lasso.mod)
+lasso.cv=cv.glmnet(x.train,y.train,alpha=1, nfolds=96) # 96-fold cross validation
+plot(lasso.cv) 
+
+bestlam<-lasso.cv$lambda.min
+bestlam ## Select lamda that minimizes training MSE
+min(lasso.cv$cvm)
+# bestlam = 0.3 results in the smallest cross-validation error 422
+
+
+# Prediction and evaluation on test data
+lasso.pred=predict(lasso.mod,s=bestlam,newx=x.test)
+mean((lasso.pred-y.test)^2)
+# the test MSE = 312
+
+lasso.pred.train=predict(lasso.mod,s=bestlam,newx=x.train)
+mean((lasso.pred.train-y.train)^2)
+# the training MSE = 288
+
+###===>maybe polynomial transformation is the best model
+
+
+
+
+
+
 
 
 
