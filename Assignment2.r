@@ -68,6 +68,9 @@ plot(data)
 ## collinearity check
 data.lm.all <- lm(Cscore~.,data=data)
 summary(data.lm.all)
+#lpsa
+#residual = 34 , r2 = 0.56 
+
 vif(data.lm.all)
 # Rule of thumb: 
 # => all vif lower than 5 
@@ -93,8 +96,37 @@ sd(omit_data$Cscore) # => after omit, the standard deviation decrease 52->40
 var(omit_data$Cscore) #  => after omit, the variance decrease 2779 -> 1601
 
 data.lm.all.omit = lm(Cscore ~ ., data = omit_data)
-summary(data.lm.all.omit) #Residual standard error decreased
+summary(data.lm.all.omit) 
 #lcp,lpsa
+#residual = 24 (decreased after omit), r2 = 0.63 
+
+
+
+
+####log transformation####
+attach(omit_data)
+omit_data_log <- omit_data
+omit_data_log$Cscore <- log(Cscore + 1 +abs(min(Cscore)));
+
+par(mfrow=c(1,1))
+hist(omit_data_log$Cscore)
+plot(omit_data_log)
+
+omit_data_log.lm <- lm(omit_data_log$Cscore ~., data=omit_data_log)
+summary(omit_data_log.lm)
+#lcp,lpsa
+#residual = 0.57 (lower than not log transform), r2 = 0.49 (lower than not log transform)
+
+#residual
+par(mfrow=c(2,3))
+plot(omit_data_log.lm) 
+res <- resid(omit_data_log.lm)
+plot(density(res))
+shapiro.test(res) # p<0.05 => not normal distribution
+
+############
+
+
 
 ## best Subset Selection 
 best <- regsubsets(Cscore~.,data=omit_data)
