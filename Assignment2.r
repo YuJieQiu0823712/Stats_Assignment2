@@ -135,7 +135,8 @@ omit_data_poly.lm2 <- lm(Cscore~age+svi+lweight+lbph+poly(lcavol,2,raw=TRUE)+
                            poly(lcp,2,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
 omit_data_poly.lm3 <- lm(Cscore~ svi+poly(lcavol,2,raw=TRUE)+poly(lcp,2,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
 omit_data_poly.lm4 <- lm(Cscore~ poly(lcp,1,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
-
+#why use raw = true
+#https://stackoverflow.com/questions/29999900/poly-in-lm-difference-between-raw-vs-orthogonal
 
 summary(omit_data_poly.lm1)
 #lcp,lpsa,lpsa^2,lbph
@@ -416,7 +417,7 @@ bestlam ## Select lamda that minimizes training MSE
 min(lasso.cv$cvm)
 # bestlam = 0.25 results in the smallest cross-validation error 380
 
-
+pairs(omit_data_poly)
 # Prediction and evaluation on test data
 lasso.pred=predict(lasso.mod,s=bestlam,newx=x.test)
 mean((lasso.pred-y.test)^2)
