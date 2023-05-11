@@ -14,7 +14,8 @@ library(leaps)
 library(splines)
 library(gam)
 library(corrplot)
-
+library(plotmo)
+library(ggplot2)
 
 ## 1 Study and describe the predictor variables. Do you see any issues that are relevant for making predictions?
 
@@ -22,18 +23,19 @@ load("prostate.Rdata")
 data <- prostate
 attach(data)
 head(data)
-dim(data) # 97 8 ==> 8 variables for 97 data points
+dim(data) #n=97, predictor=7, Cscore is the response
 sum(is.na(data)) #0
 data$svi<-as.factor(data$svi)
 str(data)
-View(data)
+
 summary(data)
 summarise(data, mean(Cscore), median(Cscore), n=n(), sd(Cscore))
+# 1 Cscore range is dramatically high and distribution is right skewed
+# 2 svi is unbalance sample size
 
-# 1 svi is unbalance sample size
-# 2 Cscore range is dramatically high
 
 ## histograms: shape of Cscore distribution
+par(mfrow=c(1,1))
 hist(data$Cscore, prob = TRUE,col = 'red',xlab='Cscore',main='Histogram of Cscore', ylim=c(0,0.02))
 lines(density(data$Cscore))
 shapiro.test(data$Cscore) # p<0.05 => not normal distribution
@@ -50,12 +52,6 @@ data.wilcox # p<0.05 =>  two populations have different continuous distribution
 res <- var.test(Cscore ~ svi, data = data)
 res # p<0.05 => there is a significant difference between the two variances
 
-
-
-## 2 Generate your best linear regression model using only linear effects. 
-## Are there any indications that assumptions underlying inferences with the model are violated? 
-## Evaluate the effect of any influential point, or outlier.
-
 ## correlation
 par(mfrow=c(1,1))
 data$svi<-as.numeric(data$svi)
@@ -67,116 +63,68 @@ plot(data)
 
 ## collinearity check
 data.lm.all <- lm(Cscore~.,data=data)
-summary(data.lm.all)
-#lpsa
-#residual = 34 , r2 = 0.56 
-
 vif(data.lm.all)
 # Rule of thumb: 
 # => all vif lower than 5 
 # => no collinearity
 
-## residual
+
+
+## 2 Generate your best linear regression model using only linear effects. 
+## Are there any indications that assumptions underlying inferences with the model are violated? 
+## Evaluate the effect of any influential point, or outlier.
+
+## Residual plot
+#To evaluate the effect of any influential points or outliers, 
+#we can examine influential plot and diagnostic plots of the model.
 par(mfrow=c(2,3))
+influencePlot(data.lm.all)
 plot(data.lm.all) 
+##This will generate a plot of the residuals against the fitted values, 
+#a normal probability plot of the residuals,
+#a plot of the residuals against the leverage values
+#and a Cook's distance plot. 
+#
 # outlier: index 96 => low leverage , high residual 
 # => biased
 # leverage point: index 32 => high leverage , low residual
 # => not impact the slope of the regression line
 
+#resudial distribution
 res <- resid(data.lm.all)
-plot(density(res))
-
-## remove outlier
-sd(data$Cscore) #52
-var(data$Cscore) #2779
-
-omit_data <- data[-c(96),] # remove row when index 96
-sd(omit_data$Cscore) # => after omit, the standard deviation decrease 52->40
-var(omit_data$Cscore) #  => after omit, the variance decrease 2779 -> 1601
-
-data.lm.all.omit = lm(Cscore ~ ., data = omit_data)
-summary(data.lm.all.omit) 
-#lcp,lpsa
-#residual = 24 (decreased after omit), r2 = 0.63 
-
-
-
-
-####log transformation####
-attach(omit_data)
-omit_data_log <- omit_data
-omit_data_log$Cscore <- log(Cscore + 1 +abs(min(Cscore)));
-
-par(mfrow=c(1,1))
-hist(omit_data_log$Cscore)
-plot(omit_data_log)
-
-omit_data_log.lm <- lm(omit_data_log$Cscore ~., data=omit_data_log)
-summary(omit_data_log.lm)
-#lcp,lpsa
-#residual = 0.57 (lower than not log transform), r2 = 0.49 (lower than not log transform)
-
-#residual
-par(mfrow=c(2,3))
-plot(omit_data_log.lm) 
-res <- resid(omit_data_log.lm)
 plot(density(res))
 shapiro.test(res) # p<0.05 => not normal distribution
 
-############
+#added-variable plots
+#Show the relationship between the dependent variable and the independent variable
+#while holding all other variables constant
+avPlots(data.lm.all)
+#The index 96 indeed is an outlier
 
+###
+#If we identify any influential points or outliers, we may want to consider 
+#removing them and refitting the model to see how the results are affected. 
+#However, it's important to be cautious when removing data points, as this 
+#can lead to biased or misleading results if not done carefully.
+###
 
-####poly transformation####
+## remove outlier
+data.lm.all <- lm(Cscore~.,data=data) #Fit a linear regression model with all predictors
+summary(data.lm.all)
+#lpsa***
+#residual = 35 , Adjusted R-squared = 0.56 
+sd(data$Cscore) #52
+var(data$Cscore) #2779
+
+omit_data <- data[-c(96),] # remove entire row when index is 96
+sd(omit_data$Cscore) # => after omit, the standard deviation decrease 52 -> 40
+var(omit_data$Cscore) #  => after omit, the variance decrease 2779 -> 1601
+
 attach(omit_data)
-omit_data_poly.lm1 <- lm(Cscore~age+svi+poly(lweight,2,raw=TRUE)+poly(lcavol,2,raw=TRUE)+poly(lbph,2,raw=TRUE)+
-                           poly(lcp,2,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
-omit_data_poly.lm2 <- lm(Cscore~age+svi+lweight+lbph+poly(lcavol,2,raw=TRUE)+
-                           poly(lcp,2,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
-omit_data_poly.lm3 <- lm(Cscore~ svi+poly(lcavol,2,raw=TRUE)+poly(lcp,2,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
-omit_data_poly.lm4 <- lm(Cscore~ poly(lcp,1,raw=TRUE)+poly(lpsa,2,raw=TRUE),data=omit_data)
-#why use raw = true
-#https://stackoverflow.com/questions/29999900/poly-in-lm-difference-between-raw-vs-orthogonal
-
-summary(omit_data_poly.lm1)
-#lcp,lpsa,lpsa^2,lbph
-#residual = 17.3 (< not log transform, >log transformation), r2 = 0.81 (> not log transform, >>log transformation)
-summary(omit_data_poly.lm2)
-#lcp,lpsa,lpsa^2
-#residual = 17.7 (< not log transform, >log transformation), r2 = 0.8 (> not log transform, >>log transformation)
-summary(omit_data_poly.lm3)
-#lcp,lpsa,lpsa^2
-#residual = 17.7 (< not log transform, >log transformation), r2 = 0.8 (> not log transform, >>log transformation)
-summary(omit_data_poly.lm4)
-#lcp,lpsa
-#residual = 17.6 (< not log transform, >log transformation), r2 = 0.8 (> not log transform, >>log transformation)
-
-anova(omit_data_all_poly.lm,omit_data_all_poly.lm2,omit_data_all_poly.lm3,omit_data_all_poly.lm4)
-#omit_data_all_poly.lm2 is the best => but there are too many variables (difficult interpretation)
-#=> I prefer omit_data_all_poly.lm4  => low residual error, and high adj r2
-
-#residual
-par(mfrow=c(2,3))
-plot(omit_data_poly.lm4) 
-res <- resid(omit_data_poly.lm4)
-plot(density(res))
-shapiro.test(res) # p>0.05 => normal distribution
-
-######try to make polynomial transform in lpsa variable
-omit_data_poly <- omit_data
-omit_data_poly$lpsa2 = omit_data_poly$lpsa^2
-
-omit_data_poly.lm <- lm(Cscore~ lcp+lpsa+lpsa2,data=omit_data_poly)
-summary(omit_data_poly.lm)
-#lcp,lpsa,lpsa^2
-#residual = 17.3 (< not log transform, >log transformation), r2 = 0.81 (> not log transform, >>log transformation)
-
-
-
-
-
-
-
+data.lm.all.omit = lm(Cscore ~ ., data = omit_data)
+summary(data.lm.all.omit)
+#lcp**,lpsa***
+#after omit, the residual decrease 35 -> 24, Adjusted R-squared increase 0.56 -> 0.63 
 
 
 ## best Subset Selection 
@@ -220,83 +168,86 @@ coef(bwd, 2)
 # 8.5  21.2 
 # => lcp,lpsa 
 
-
 data.lm.omit = lm(Cscore ~ lcp + lpsa, data = omit_data)
 summary(data.lm.omit) 
 #8.5 21.2
 #lcp,lpsa
-
 
 # They all select the same variables: 
 # lcp,lpsa
 
 
 
+## validation set approach
+set.seed(1)
+train <- sample(c(TRUE, FALSE), nrow(omit_data ), rep=TRUE)
+test <- (!train)
 
-############polynomial transform
-## best Subset Selection (polynomial transform)
-attach(omit_data_poly)
-best <- regsubsets(Cscore~.,data=omit_data_poly)
-bestSUM <- summary(best)
+#apply regsubsets() to the training set in order to perform best subset selection
+regfit.best <- regsubsets(Cscore~., data = omit_data [train,], nvmax=7)
 
-par(mfrow=c(1,2))
-plot(bestSUM$bic,type="b",ylab="BIC",main ="Best Subset Selection")
-points(3,bestSUM$bic[3], col ="red",cex =2, pch =20) 
-plot(best, scale="bic",main ="Best Subset Selection")
-which.min(bestSUM$bic)
-co=coef(best,3)
-names(co)
-coef(best, 3) 
-# 6.18  -20  8.9  
-# => lcp,lpsa,lpsa^2
+#compare the validation set error
+test.mat=model.matrix (Cscore~., data=omit_data [test ,])
+#compute the test MSE
+val.errors <- rep(NA,7)
+for(i in 1:7){
+  coefi = coef(regfit.best, id=i)
+  pred=test.mat[,names(coefi)]%*%coefi
+  val.errors[i]=mean((omit_data $Cscore[test]-pred)^2)
+}
+val.errors
+par(mfrow =c(1,1))
+plot(val.errors, type="b", xlab="Number of Predictors", ylab="Validation Set Error",main="Validation Set Errors")
+points(which.min(val.errors), val.errors[which.min(val.errors)], col = "red", cex = 2, pch = 20)
+which.min(val.errors)
+coef(regfit.best, 1)
 
-## forward selection (polynomial transform)
-fwd <- regsubsets(Cscore~.,data=omit_data_poly,method="forward")
-fwdSUM <- summary(fwd)
-plot(fwdSUM$bic,type="b",ylab="BIC",main ="Forward selection")
-points(3,fwdSUM$bic[3], col ="red",cex =2, pch =20) 
-plot(fwd, scale="bic",main ="Forward selection")
-which.min(fwdSUM$bic)
-co=coef(fwd,3)
-names(co)
-coef(fwd, 3) 
-# 6.18  -20  8.9  
-# => lcp,lpsa,lpsa^2
+#use full model
+regfit.best <- regsubsets(Cscore~., data =omit_data , nvmax=7)
+coef(regfit.best,1)
+#26.88
+#lpsa
 
-## backward selection (polynomial transform)
-bwd <- regsubsets(Cscore~.,data=omit_data_poly,method="backward")
-bwdSUM <- summary(bwd)
-plot(bwdSUM$bic,type="b",ylab="BIC",main ="Backward selection")
-points(3,bwdSUM$bic[3], col ="red",cex =2, pch =20) 
-plot(bwd, scale="bic",main ="Backward selection")
-which.min(bwdSUM$bic)
-co=coef(bwd,3)
-names(co)
-coef(bwd, 3) 
-# 6.18  -20  8.9  
-# => lcp,lpsa,lpsa^2
 
-#no log transform
-data.lm.omit = lm(Cscore ~ lcp + lpsa, data = omit_data)
-summary(data.lm.omit) 
-#8.5 21.2
-#lcp,lpsa
-#residual = 24, r2 = 0.62
 
-#log transform
-data.log.lm.omit = lm(Cscore ~ lcp + lpsa, data = omit_data_log)
-summary(data.log.lm.omit) 
-#0.15 0.38
-#lcp,lpsa
-#residual = 0.56, r2 = 0.49
+## 10-fold cross validation
+predict.regsubsets =function (object ,newdata ,id ,...){
+  form=as.formula (object$call [[2]])
+  mat=model.matrix (form ,newdata )
+  coefi =coef(object ,id=id)
+  xvars =names (coefi )
+  mat[,xvars ]%*% coefi
+}
 
-#repeat code
-omit_data_poly.lm <- lm(Cscore ~lcp + lpsa+lpsa2, data=omit_data_poly)
-summary(omit_data_poly.lm)
-# 6.18  -20   8.9
-# lcp, lpsa, lpsa^2
-#residual = 17.65, r2 = 0.8
+set.seed(1)
+k=10
+folds=sample(1:k, nrow(omit_data), replace=TRUE)
+cv.errors=matrix(NA, k, 7, dimnames=list(NULL, paste(1:7)))
+#perform cross-validation
+for(j in 1:k){
+  best.fit=regsubsets(Cscore~., data=omit_data[folds!=j,], nvmax=7)
+  for(i in 1:7){
+    pred=predict(best.fit, omit_data[folds==j,], id=i)
+    cv.errors[j,i]=mean((omit_data$Cscore[folds==j]-pred)^2)
+  }
+}
+#obtain cross-validation error
+mean.cv.errors =apply(cv.errors ,2, mean)
+mean.cv.errors
+which.min(mean.cv.errors)
+#2
 
+par(mfrow =c(1,1))
+plot(mean.cv.errors,xlab="Number of Predictors", ylab="10-fold Cross-Validation Error", main="Cross-Validation Errors", type="b")
+points(which.min(mean.cv.errors), mean.cv.errors[which.min(mean.cv.errors)], col = "red", cex = 2, pch = 20)
+
+#use full model
+regfit.best <- regsubsets(Cscore~., data=omit_data, nvmax=7)
+coef(regfit.best, 2)
+#8.52  21.15
+#lcp  lpsa
+
+# => Cscore = -17.46 + 8.5*lcp + 21.2*lpsa + irreducible error
 
 
 
@@ -305,195 +256,150 @@ summary(omit_data_poly.lm)
 
 ## 3 Make an appropriate LASSO model, with the appropriate link and error function, and
 ## evaluate the prediction performance. Do you see evidence that over-learning is an issue?
-
+#evaluate the prediction performance of the LASSO model using
+#the test set and calculate the mean squared error (MSE). 
 set.seed(1)
-train=sample(1:nrow(omit_data), nrow(omit_data)*2/3)
-test=(-train)
-x=model.matrix(Cscore~.,omit_data)[,-1] #delete Cscore column
-y=omit_data$Cscore
-y.train=y[train]
-y.test=y[test]
-x.train=x[train,]
-x.test=x[test,]
-omit_data.train=omit_data[train,]
-omit_data.test=omit_data[test,]
-dim(omit_data.train) #64,8
-dim(omit_data.test) #32,8
+train_index <- sample(nrow(omit_data), nrow(omit_data) * 2/3) 
+train <- omit_data[train_index, ]
+test <- omit_data[-train_index, ]
 
-## Lasso regression
-par(mfrow=c(1,2))
-lasso.mod=glmnet(y=y.train,x=x.train,alpha=1)
-plot(lasso.mod,label=TRUE)
-lasso.cv=cv.glmnet(x.train,y.train,alpha=1) # 10-fold cross validation
-plot(lasso.cv) 
+grid =10^seq(10,-2, length =100)
+x_train <- model.matrix(Cscore ~ ., train)[,-1]
+y_train <- train$Cscore
+x_test <- model.matrix(Cscore ~ ., test)[,-1]
+y_test <- test$Cscore
 
-########
-# lable variables 1
-library(plotmo)
-plot_glmnet(lasso.mod,label=TRUE,xvar="lambda",s=lasso.cv$lambda.min)
-
-
-# lable variables 2
-lbs_fun <- function(fit, ...) {
-  L <- length(fit$lambda)
-  x <- log(fit$lambda[L])
-  y <- fit$beta[, L]
-  labs <- names(y)
-  text(x, y, labels=labs, ...)
-  #legend('topright', legend=labs, col=1:length(labs), lty=1) 
-}
-plot(lasso.mod, xvar="lambda", col=1:dim(coef(lasso.mod))[1])
-lbs_fun(lasso.mod)
-
-#######
-
-
-bestlam<-lasso.cv$lambda.min
-bestlam ## Select lamda that minimizes training MSE
-min(lasso.cv$cvm)
+## Lasso regression with 10-fold Cross Validation ##
+lasso_mod <- glmnet(x_train, y_train, alpha =1, lambda =grid)
+lasso_fit <- cv.glmnet(x_train, y_train, alpha = 1, nfolds=10)
+plot(lasso_fit,main="10 fold Cross Validation")
+lambda_best <- lasso_fit$lambda.min
+lambda_best
+min(lasso_fit$cvm)
 # bestlam = 0.7 results in the smallest cross-validation error 643
 
+# Calculate the MSE on the training set
+y_train_pred <- predict(lasso_mod,s=lambda_best, newx = x_train)
+mse_train <- mean((y_train_pred - y_train)^2)
+mse_train 
+#468
 
-# Prediction and evaluation on test data
-lasso.pred=predict(lasso.mod,s=bestlam,newx=x.test)
-mean((lasso.pred-y.test)^2)
-# the test MSE = 750
+# Calculate the MSE on the test set
+y_test_pred <- predict(lasso_mod,s=lambda_best, newx = x_test)
+mse_test <- mean((y_test_pred - y_test)^2)
+mse_test
+#750
 
-lasso.pred.train=predict(lasso.mod,s=bestlam,newx=x.train)
-mean((lasso.pred.train-y.train)^2)
-# training MSE = 468
-
-
-
-##### Lasso regression with LOOCV ####
-par(mfrow=c(1,2))
-lasso.mod=glmnet(y=y.train,x=x.train,alpha=1)
-plot(lasso.mod)
-lasso.cv=cv.glmnet(x.train,y.train,alpha=1, nfolds=96) # 96-fold cross validation
-plot(lasso.cv) 
-
-bestlam<-lasso.cv$lambda.min
-bestlam ## Select lamda that minimizes training MSE
-min(lasso.cv$cvm)
-# bestlam = 0.5 results in the smallest cross-validation error 651
-
-
-# Prediction and evaluation on test data
-lasso.pred=predict(lasso.mod,s=bestlam,newx=x.test)
-mean((lasso.pred-y.test)^2)
-# the test MSE = 757
-
-lasso.pred.train=predict(lasso.mod,s=bestlam,newx=x.train)
-mean((lasso.pred.train-y.train)^2)
-# the training MSE = 465
+# => the MSE on the test set is much higher than the MSE on the training set, 
+#   which may suggest that the LASSO model is overfitting to the training data.
 
 
 
-
-################polynomial transform
+### Lasso regression with LOOCV ###
 set.seed(1)
-train=sample(1:nrow(omit_data_poly), nrow(omit_data_poly)*2/3)
-test=(-train)
-x=model.matrix(Cscore~.,omit_data_poly)[,-1] #delete Cscore column
-y=omit_data_poly$Cscore
-y.train=y[train]
-y.test=y[test]
-x.train=x[train,]
-x.test=x[test,]
-omit_data_poly.train=omit_data_poly[train,]
-omit_data_poly.test=omit_data_poly[test,]
-dim(omit_data_poly.train) #64,9
-dim(omit_data_poly.test) #32,9
+train_index <- sample(nrow(omit_data), nrow(omit_data) * 2/3) 
+train <- omit_data[train_index, ]
+test <- omit_data[-train_index, ]
 
-## Lasso regression
-par(mfrow=c(1,2))
-lasso.mod=glmnet(y=y.train,x=x.train,alpha=1)
-plot(lasso.mod)
-lasso.cv=cv.glmnet(x.train,y.train,alpha=1) # 10-fold cross validation
-plot(lasso.cv) 
+grid =10^seq(10,-2, length =100)
+x_train <- model.matrix(Cscore ~ ., train)[,-1]
+y_train <- train$Cscore
+x_test <- model.matrix(Cscore ~ ., test)[,-1]
+y_test <- test$Cscore
+
+lasso_mod_loocv <- glmnet(x_train, y_train, alpha =1, lambda =grid)
+lasso.cv=cv.glmnet(x_train, y_train,alpha=1, nfolds=96) # 96-fold cross validation
+plot(lasso.cv, ylim = c(500, 2000), main="Leave One Out Cross Validation") 
 
 bestlam<-lasso.cv$lambda.min
 bestlam ## Select lamda that minimizes training MSE
+#0.56
 min(lasso.cv$cvm)
-# bestlam = 0.25 results in the smallest cross-validation error 380
+# bestlam = 0.56 results in the smallest cross-validation error 651
 
-pairs(omit_data_poly)
-# Prediction and evaluation on test data
-lasso.pred=predict(lasso.mod,s=bestlam,newx=x.test)
-mean((lasso.pred-y.test)^2)
-# the test MSE = 308
-
-lasso.pred.train=predict(lasso.mod,s=bestlam,newx=x.train)
-mean((lasso.pred.train-y.train)^2)
-# training MSE = 286
-
-
-
-##### Lasso regression with LOOCV (polynomial)####
-par(mfrow=c(1,2))
-lasso.mod=glmnet(y=y.train,x=x.train,alpha=1)
-plot(lasso.mod)
-lasso.cv=cv.glmnet(x.train,y.train,alpha=1, nfolds=96) # 96-fold cross validation
-plot(lasso.cv) 
-
-bestlam<-lasso.cv$lambda.min
-bestlam ## Select lamda that minimizes training MSE
-min(lasso.cv$cvm)
-# bestlam = 0.3 results in the smallest cross-validation error 422
-
+lasso.pred.train=predict(lasso_mod_loocv,s=bestlam,newx=x_train)
+mean((lasso.pred.train-y_train)^2)
+# the training MSE = 465.29
 
 # Prediction and evaluation on test data
-lasso.pred=predict(lasso.mod,s=bestlam,newx=x.test)
-mean((lasso.pred-y.test)^2)
-# the test MSE = 312
+lasso.pred=predict(lasso_mod_loocv,s=bestlam,newx=x_test)
+mean((lasso.pred-y_test)^2)
+# the test MSE = 757.24
 
-lasso.pred.train=predict(lasso.mod,s=bestlam,newx=x.train)
-mean((lasso.pred.train-y.train)^2)
-# the training MSE = 288
-
-###===>maybe polynomial transformation is the best model
+# => the MSE on the test set is much higher than the MSE on the training set, 
+#   which may suggest that the LASSO model is overfitting to the training data.
 
 
+#To further evaluate if overfitting is an issue, you can also plot the predicted 
+#values versus the actual values for both the training and test sets.
 
+#If the plot for the test set shows a more scattered pattern than the plot 
+#for the training set, this may also indicate overfitting. 
+par(mfrow = c(1,2))
+plot(y_train, y_train_pred, main = "Training set")
+abline(0,1)
+plot(y_test, y_test_pred, main = "Test set")
+abline(0,1)
 
-
-
-
-
-
-###############not use this
-## linear regression
-linear.mod=lm(y.train~x.train)
-summary(linear.mod)
-# => lcavol, lcp, lpsa
-
-mean(linear.mod$residuals^2)
-# the training MSE = 460
-
-# use fitted model to make predictions
-linear.pred=predict(linear.mod,newx=x.test)
-mean((y.test-linear.pred)^2)
-# the test MSE = 2658
-
-# the MSE of the linear model (2658) is larger than the lasso model (750)
-# => the variance of lasso modle is smaller. 
-# => there is no over-learning issue.
-##############
-
-
-
+#The first panel: the predicted values versus the actual values for the training set
+#The second panel will show the same for the test set. 
+#The abline(0,1) function adds a reference line to the plot with a slope of 1 and an intercept of 0,
+#which represents perfect prediction. 
+#=>If the points on the plot are close to this reference line, 
+#  it suggests that the model is doing a good job of predicting the outcomes.
 
 
 
 ## 4 Look at the coefficient for “lcavol” in your LASSO model. 
 ## Does this coefficient correspond to how well it can predict Cscore? Explain your observation.
 
-coef(lasso.cv)
-# lcavol, lweight, age, lbph coefficient = 0
-# svi = 6
-# lcp = 2
-# lpsa = 15 => important variables
 
+## Lasso regression with 10-fold Cross Validation ##
+out=glmnet(omit_data[,-1],omit_data$Cscore, alpha =1, lambda =grid)
+
+# Generate standardized LASSO coefficients
+lasso.coef.standardized <- coef(out, s = lambda_best, 
+                                x = x_train, y = y_train, 
+                                standardize = TRUE)[1:8,]
+lasso.coef.standardized #lcavol:-3.09
+plot_glmnet(out, label = TRUE, s = lambda_best, xlim = c(10, -5), main="10-fold Cross-Validation")
+#The coefficient for "lcavol" in the LASSO model is -3. 
+#This means that a one-unit increase in the natural log of the "lcavol" 
+#(luminal volume) is associated with a -3 unit decrease in the Cscore,
+#holding all other predictors constant.
+
+
+
+## Lasso regression with LOOCV ##
+out.loocv=glmnet(omit_data[,-1],omit_data$Cscore, alpha =1, lambda =grid)
+
+# Generate standardized LASSO coefficients
+lasso.coef.loocv <- coef(out.loocv, s = bestlam, 
+                         x = x_train, y = y_train, 
+                         standardize = TRUE)[1:8,]
+lasso.coef.loocv #lcavol:-3.97
+plot_glmnet(out.loocv, label = TRUE, s = bestlam, xlim = c(10, -5), main="Leave One Out Cross Validation")
+
+
+
+
+#This code will create a scatterplot with "lcavol" on the x-axis and "Cscore"
+#on the y-axis, and add a linear regression line to show the overall trend in
+#the data.
+ggplot(data = omit_data, aes(x = lcavol, y = Cscore)) +
+  geom_point() +
+  geom_smooth(method = "lm") 
+#You can use this plot to see how well "lcavol" predicts "Cscore" 
+
+model <- lm(Cscore ~ lcavol, data = omit_data)
+summary(model)
+#0.3138 The R-squared value measures the proportion of variance in the 
+#response variable that is explained by the predictor variable. 
+#A higher R-squared value indicates a stronger relationship between the
+#predictor and response variables.
+
+cor(omit_data$lcavol, omit_data$Cscore)
+#0.56 => may not be representative of its true relationship with "Cscore"
 
 
 
@@ -502,4 +408,183 @@ coef(lasso.cv)
 ## Report a comparison of performance to LASSO and your model reported under question 2. 
 ## Explain what you find,and indicate relevant issues or limitations of your analysis.
 
+set.seed(1)
+dim(omit_data)
+train_index <- sample(nrow(omit_data), nrow(omit_data) * 2/3) 
+train <- omit_data[train_index, ]
+test <- omit_data[-train_index, ]
+
+
+# Fit the linear regression model (2 variables)
+lm_fit <- lm(Cscore ~lcp + lpsa, data = train)
+lm_pred <- predict(lm_fit, newdata = test)
+lm_mse <- mean((lm_pred - test$Cscore)^2)
+lm_mse 
+#684 < 750 (lasso)
+
+# Forward stepwise selection with training data
+regfit.fwd=regsubsets(Cscore~. , train ,method="forward")
+summary(regfit.fwd)
+plot(summary(regfit.fwd,)$bic,type="b",ylab="BIC", main="Forward selection")#we select 4 variables
+which.min(summary(regfit.fwd)$bic)
+points(which.min(summary(regfit.fwd)$bic),summary(regfit.fwd)$bic[which.min(summary(regfit.fwd)$bic)], col ="red",cex =2, pch =20) 
+plot(regfit.fwd, scale="bic",main ="Forward selection")
+coef(regfit.fwd, 4)
+#lcavol lbph   lcp  lpsa
+
+lm1=lm(Cscore~lcavol+lbph+lcp+lpsa,data=train)
+predlm1 = predict(lm1, newdata=test) 
+mselm1 = mean((predlm1-test$Cscore)^2)
+mselm1
+#745.76 > 684 (indicate 4 variables is worse than 2 variables)
+
+# Fit a GAM, plot the results, evaluate the model 
+gam1=gam(Cscore~ s(lcavol,4) +s(lbph,4)+ s(lcp,4)+s(lpsa,4),data=train) 
+par(mfrow=c(2,2))
+plot(gam1,se=TRUE,col="purple")
+summary(gam1)#only lpsa seems to have non-linear effect, lbph is not significant
+predgam = predict(gam1, newdata=test) 
+msegam1 = mean((predgam-test$Cscore)^2)
+msegam1
+#379.97
+
+# Remove lbph and remove smooth spline function
+gam2=gam(Cscore~ lcavol + lcp + s(lpsa,4),data=train) 
+plot(gam2,se=TRUE,col="purple")
+summary(gam2)
+predgam2 = predict(gam2, newdata=test) 
+msegam2 = mean((predgam2-test$Cscore)^2)
+msegam2
+#350
+
+# Reduce df
+gam3=gam(Cscore~ lcavol + lcp +s(lpsa,3),data=train) 
+plot(gam3,se=TRUE,col="purple")
+summary(gam3)
+predgam3 = predict(gam3, newdata=test) 
+msegam3 = mean((predgam3-test$Cscore)^2)
+msegam3
+#332
+anova(gam1, gam2, gam3) #choose gam3
+# simplification justified as expected.
+
+
+#fit same model with ns
+par(mfrow=c(2,2))
+lm1 = lm(Cscore~lcavol+ lcp +ns(lpsa,3) ,data=train)
+summary(lm1)
+plot(lm1)
+predlm1 = predict(lm1, newdata=test) 
+mselm1 = mean((predlm1-test$Cscore)^2)
+mselm1
+#310, better than smoothing
+
+#remove lcavol
+lm2 = lm(Cscore~ lcp + ns(lpsa,3) ,data=train)
+summary(lm2)
+predlm2 = predict(lm2, newdata=test) 
+mselm2 = mean((predlm2-test$Cscore)^2)
+mselm2
+#267
+
+
+#reduce df
+lm3 = lm(Cscore~ lcp +ns(lpsa,2) ,data=train)
+summary(lm3)
+predlm3 = predict(lm3, newdata=test) 
+mselm3 = mean((predlm3-test$Cscore)^2)
+mselm3 #marginally worse than msegam2
+#277
+
+anova(lm1,lm2,lm3) #choose lm3
+
+
+#remove lcp
+lm4 = lm(Cscore~ns(lpsa,2) ,data=train)
+summary(lm4)
+predlm4 = predict(lm4, newdata=test) 
+mselm4 = mean((predlm4-test$Cscore)^2)
+mselm4
+#324
+
+anova(lm1,lm2,lm3, lm4) #choose lm4
+
+
+## polynomial transformation with lpsa variable
+poly.lm <- lm(Cscore~ lcp +poly(lpsa,2,raw=TRUE),data=omit_data)
+summary(poly.lm)
+predlm5 = predict(poly.lm, newdata=test) 
+mselm5 = mean((predlm5-test$Cscore)^2)
+mselm5
+#257
+summary(poly.lm)$coef
+#6.18  -20  8.9
+#lcp  lpsa  lpsa^2
+
+par(mfrow=c(2,3))
+plot(poly.lm)
+res <- resid(poly.lm)
+plot(density(res))
+shapiro.test(res) # p>0.05 
+# => residual is normal distribution
+
+## polynomial 3 degree 
+poly.lm2 <- lm(Cscore~ lcp +poly(lpsa,3,raw=TRUE),data=omit_data)
+summary(poly.lm2)
+predlm6 = predict(poly.lm2, newdata=test) 
+mselm6 = mean((predlm6-test$Cscore)^2)
+mselm6
+#246
+
+anova(poly.lm,poly.lm2)
+# poly.lm2 is not significant 
+# => polynomial 2 degree is better (simpler is better)
+
+
+
+
+## Visualizing of the model 
+# Draw regression curve
+par(mfrow=c(2,2))
+#lcp
+my_mod_lcp <- lm(Cscore ~ lcp, data = omit_data)
+summary(my_mod_lcp) 
+plot(Cscore ~ lcp, omit_data , main="Cscore vs lcp") 
+lines(sort(omit_data$lcp),      
+      fitted(my_mod_lcp)[order(omit_data$lcp)],
+      col = "red",
+      type = "l")
+
+#lpsa
+my_mod_lpsa <- lm(Cscore ~ lpsa, data = omit_data)
+summary(my_mod_lpsa) 
+plot(Cscore ~ lpsa, omit_data, main="Cscore vs lpsa") 
+lines(sort(omit_data$lpsa),      
+      fitted(my_mod_lpsa)[order(omit_data$lpsa)],
+      col = "red",
+      type = "l")
+
+
+# Draw polynomial regression curve
+#lcp
+my_mod_lcp <- lm(Cscore ~ lcp, data = omit_data)
+summary(my_mod_lcp) 
+plot(Cscore ~ lcp, omit_data , main="Cscore vs lcp") 
+lines(sort(omit_data$lcp),      
+      fitted(my_mod_lcp)[order(omit_data$lcp)],
+      col = "red",
+      type = "l")
+
+#lpsa
+my_mod_lpsa <- lm(Cscore ~ poly(lpsa, 2, raw=TRUE), data = omit_data)
+summary(my_mod_lpsa) 
+plot(Cscore ~ lpsa, omit_data, main="Cscore vs lpsa") 
+lines(sort(omit_data$lpsa),      
+      fitted(my_mod_lpsa)[order(omit_data$lpsa)],
+      col = "red",
+      type = "l")
+
+#From the graph above, we can see that the model is nearly perfect.
+#It fits the data points appropriately. 
+#Therefore, we can use the model to make other predictions.
 
