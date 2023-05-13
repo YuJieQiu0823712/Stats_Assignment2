@@ -273,6 +273,8 @@ y_test <- test$Cscore
 lasso_mod <- glmnet(x_train, y_train, alpha =1, lambda =grid)
 lasso_fit <- cv.glmnet(x_train, y_train, alpha = 1, nfolds=10)
 plot(lasso_fit,main="10 fold Cross Validation")
+
+## lambda.min
 lambda_best <- lasso_fit$lambda.min
 lambda_best
 min(lasso_fit$cvm)
@@ -293,6 +295,31 @@ mse_test
 # => the MSE on the test set is much higher than the MSE on the training set, 
 #   which may suggest that the LASSO model is overfitting to the training data.
 
+
+## lambda.1se
+lambda_best_se <- lasso_fit$lambda.1se
+lambda_best_se
+# bestlam = 9.1 
+
+# Calculate the MSE on the training set
+y_train_pred <- predict(lasso_mod,s=lambda_best_se, newx = x_train)
+mse_train_se <- mean((y_train_pred - y_train)^2)
+mse_train_se 
+#lambda.1se
+# 655
+
+# Calculate the MSE on the test set
+y_test_pred <- predict(lasso_mod,s=lambda_best_se, newx = x_test)
+mse_test_se <- mean((y_test_pred - y_test)^2)
+mse_test_se
+#lambda.1se
+# 844
+
+# the difference between training and test MSE:
+# lambda.min : 282
+# lambda.1se : 189
+# => lambda.1se get smaller difference, 
+#    which may suggest less overfitting compared to lambda.min 
 
 
 ### Lasso regression with LOOCV ###
@@ -330,6 +357,31 @@ mean((lasso.pred-y_test)^2)
 #   which may suggest that the LASSO model is overfitting to the training data.
 
 
+#lambda_best_se
+lambda_best_se <- lasso.cv$lambda.1se
+lambda_best_se
+# bestlam = 9.1 
+
+# Calculate the MSE on the training set
+y_train_pred <- predict(lasso.cv,s=lambda_best_se, newx = x_train)
+mse_train_se <- mean((y_train_pred - y_train)^2)
+mse_train_se 
+#655
+
+# Calculate the MSE on the test set
+y_test_pred <- predict(lasso_mod,s=lambda_best_se, newx = x_test)
+mse_test_se <- mean((y_test_pred - y_test)^2)
+mse_test_se
+#844
+
+# the difference between training and test MSE:
+# lambda.min : 292
+# lambda.1se : 189
+# => lambda.1se get smaller difference, 
+#    which may suggest less overfitting compared to lambda.min 
+
+
+
 #To further evaluate if overfitting is an issue, you can also plot the predicted 
 #values versus the actual values for both the training and test sets.
 
@@ -353,7 +405,6 @@ abline(0,1)
 ## 4 Look at the coefficient for “lcavol” in your LASSO model. 
 ## Does this coefficient correspond to how well it can predict Cscore? Explain your observation.
 
-
 ## Lasso regression with 10-fold Cross Validation ##
 out=glmnet(omit_data[,-1],omit_data$Cscore, alpha =1, lambda =grid)
 
@@ -369,7 +420,6 @@ plot_glmnet(out, label = TRUE, s = lambda_best, xlim = c(10, -5), main="10-fold 
 #holding all other predictors constant.
 
 
-
 ## Lasso regression with LOOCV ##
 out.loocv=glmnet(omit_data[,-1],omit_data$Cscore, alpha =1, lambda =grid)
 
@@ -379,7 +429,6 @@ lasso.coef.loocv <- coef(out.loocv, s = bestlam,
                          standardize = TRUE)[1:8,]
 lasso.coef.loocv #lcavol:-3.97
 plot_glmnet(out.loocv, label = TRUE, s = bestlam, xlim = c(10, -5), main="Leave One Out Cross Validation")
-
 
 
 
