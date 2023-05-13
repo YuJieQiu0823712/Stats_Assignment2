@@ -236,6 +236,11 @@ plot(lasso_fit,main="10 fold Cross Validation")
 lambda_best <- lasso_fit$lambda.min
 lambda_best
 #0.73
+lambda_1se <- lasso_fit$lambda.1se
+lambda_1se 
+#9.11
+#much higher than best lambda, means that we expect the coefficients under 1se
+#to be much smaller or exactly zero
 min(lasso_fit$cvm)
 #643
 
@@ -251,16 +256,26 @@ mse_test <- mean((y_test_pred - y_test)^2)
 mse_test
 #750
 
+# Calculate the MSE on the training set
+y_train_pred_se <- predict(lasso_mod,s=lambda_1se , newx = x_train)
+mse_train_se <- mean((y_train_pred_se - y_train)^2)
+mse_train_se 
+#655
+# Calculate the MSE on the test set
+y_test_pred_se <- predict(lasso_mod,s=lambda_1se , newx = x_test)
+mse_test_se <- mean((y_train_pred_se - y_test)^2)
+mse_test_se
+#2110
+
 #the MSE on the test set is much higher than the MSE on the training set, which 
 #may suggest that the LASSO model is overfitting to the training data.
 #fit to the full data
 out=glmnet(omit_data[,-1],omit_data$Cscore, alpha =1, lambda =grid)
 
 # Generate standardized LASSO coefficients
-lasso.coef.standardized <- coef(out, s = lambda_best, 
-                                x = x_train, y = y_train, 
+lasso.coef.standardized <- predict(out, s = lambda_best, type = "coefficients",
                                 standardize = TRUE)[1:8,]
-lasso.coef.standardized
+lasso.coef.standardized 
 
 library(plotmo)
 plot_glmnet(out, label = TRUE, s = lambda_best, xlim = c(10, -5), main="10-fold Cross-Validation")
@@ -270,15 +285,17 @@ plot_glmnet(out, label = TRUE, s = lambda_best, xlim = c(10, -5), main="10-fold 
 #(luminal volume) is associated with a -3.097977 unit decrease in the Cscore,
 #holding all other predictors constant.
 
-#The coefficient does not directly correspond to how well it can predict
-#Cscore. However, it indicates the strength and direction of the relationship 
-#between the predictor and the response variable in the model. 
-#A larger absolute value of the coefficient suggests a stronger
-#association between the predictor and the response. In this case, 
-#the negative coefficient suggests that as "lcavol" increases, "Cscore" 
-#tends to decrease.
 
-coef(lasso_fit)
+##1- se lambda 
+out=glmnet(omit_data[,-1],omit_data$Cscore, alpha =1, lambda =grid)
+
+# Generate standardized LASSO coefficients
+lasso.se.coef.standardized <- predict(out, s = lambda_1se, type = "coefficients",
+                                   standardize = TRUE)[1:8,]
+lasso.se.coef.standardized 
+#only 3 variables left (svi, lcp,lpsa)
+library(plotmo)
+plot_glmnet(out, label = TRUE, s = lambda_1se, xlim = c(10, -5), main="10-fold Cross-Validation")
 
 #test sample is only 32 so might influence the MSE
 #overlearning 
