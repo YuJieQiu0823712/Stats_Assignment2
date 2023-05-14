@@ -145,7 +145,7 @@ test <- (!train)
 
 #apply regsubsets() to the training set in order to perform best subset selection
 regfit.best <- regsubsets(Cscore~., data = omit_data [train,], nvmax=7)
-
+nrow(omit_data [train,])
 #compare the validation set error
 test.mat=model.matrix (Cscore~., data=omit_data [test ,])
 #compute the test MSE
@@ -218,7 +218,7 @@ coef(regfit.best, 2)
 #evaluate the prediction performance of the LASSO model using the test set 
 #and calculate the mean squared error (MSE). 
 set.seed(1)
-train_index <- sample(nrow(omit_data), nrow(omit_data) * 2/3) 
+train_index <- sample(nrow(omit_data), nrow(omit_data)*2/3) 
 train <- omit_data[train_index, ]
 test <- omit_data[-train_index, ]
 
@@ -232,40 +232,66 @@ y_test <- test$Cscore
 lasso_mod <- glmnet(x_train, y_train, alpha =1, lambda =grid)
 
 lasso_fit <- cv.glmnet(x_train, y_train, alpha = 1, nfolds=10)
+par(mfrow =c(1,1))
 plot(lasso_fit,main="10 fold Cross Validation")
 lambda_best <- lasso_fit$lambda.min
 lambda_best
-#0.73
+#0.404
 lambda_1se <- lasso_fit$lambda.1se
 lambda_1se 
-#9.11
+#7.93
 #much higher than best lambda, means that we expect the coefficients under 1se
 #to be much smaller or exactly zero
 min(lasso_fit$cvm)
-#643
+#620
+
+# Get the index of the lambda with the minimum CVM
+lambda_idx <- which.min(lasso_fit$cvm) 
+lambda_idx
+# Get the CVM for the lambda with the minimum CVM
+cvm <- lasso_fit$cvm[lambda_idx] 
+cvm
+# Get the CVSD for the lambda with the minimum CVM
+cvsd <- lasso_fit$cvsd[lambda_idx] 
+cvsd
+#155.03
 
 
 # Calculate the MSE on the training set
 y_train_pred <- predict(lasso_mod,s=lambda_best, newx = x_train)
 mse_train <- mean((y_train_pred - y_train)^2)
 mse_train 
-#468
+#390
 # Calculate the MSE on the test set
 y_test_pred <- predict(lasso_mod,s=lambda_best, newx = x_test)
 mse_test <- mean((y_test_pred - y_test)^2)
 mse_test
-#750
+#729
+
+
+# Get the index of lambda_1se in the lambda sequence
+lambda_1se_index <- which(lasso_fit$lambda == lambda_1se)
+lambda_1se_index
+# Get the cvm and cvd values for lambda_1se
+cvm_lambda_1se <- lasso_fit$cvm[lambda_1se_index]
+cvm_lambda_1se
+#725
+cvd_lambda_1se <- lasso_fit$cvsd[lambda_1se_index]
+cvd_lambda_1se
+#144
 
 # Calculate the MSE on the training set
 y_train_pred_se <- predict(lasso_mod,s=lambda_1se , newx = x_train)
 mse_train_se <- mean((y_train_pred_se - y_train)^2)
 mse_train_se 
-#655
+#568
 # Calculate the MSE on the test set
 y_test_pred_se <- predict(lasso_mod,s=lambda_1se , newx = x_test)
-mse_test_se <- mean((y_train_pred_se - y_test)^2)
+mse_test_se <- mean((y_test_pred_se - y_test)^2)
 mse_test_se
-#2110
+#836
+
+
 
 #the MSE on the test set is much higher than the MSE on the training set, which 
 #may suggest that the LASSO model is overfitting to the training data.
@@ -278,7 +304,7 @@ lasso.coef.standardized <- predict(out, s = lambda_best, type = "coefficients",
 lasso.coef.standardized 
 
 library(plotmo)
-plot_glmnet(out, label = TRUE, s = lambda_best, xlim = c(10, -5), main="10-fold Cross-Validation")
+plot_glmnet(out, label = TRUE, s = lambda_best, xlim = c(10, -5), main="10-fold Cross-Validation", )
 
 #The coefficient for "lcavol" in the LASSO model is -3.097977. 
 #This means that a one-unit increase in the natural log of the "lcavol" 
@@ -295,44 +321,8 @@ lasso.se.coef.standardized <- predict(out, s = lambda_1se, type = "coefficients"
 lasso.se.coef.standardized 
 #only 3 variables left (svi, lcp,lpsa)
 library(plotmo)
-plot_glmnet(out, label = TRUE, s = lambda_1se, xlim = c(10, -5), main="10-fold Cross-Validation")
+plot_glmnet(out, label = TRUE, s = lambda_1se , xlim = c(10, -5), main="10-fold Cross-Validation",add = TRUE)
 
-#test sample is only 32 so might influence the MSE
-#overlearning 
-
-# predict Cscore on the training set
-y_train_pred <- predict(lasso_mod, s = lambda_best, newx = x_train)
-# calculate RMSE on the training set
-rmse_train <- sqrt(mean((y_train_pred - y_train)^2))
-# calculate R-squared on the training set
-rsq_train <- 1 - sum((y_train - y_train_pred)^2) / sum((y_train - mean(y_train))^2)
-
-# predict Cscore on the test set
-y_test_pred <- predict(lasso_mod, s = lambda_best, newx = x_test)
-# calculate RMSE on the test set
-rmse_test <- sqrt(mean((y_test_pred - y_test)^2))
-# calculate R-squared on the test set
-rsq_test <- 1 - sum((y_test - y_test_pred)^2) / sum((y_test - mean(y_test))^2)
-
-# print the results
-cat("RMSE on training set:", rmse_train, "\n")
-cat("RMSE on test set:", rmse_test, "\n")
-cat("R-squared on training set:", rsq_train, "\n")
-cat("R-squared on test set:", rsq_test, "\n")
-#60.9% of the variation in the Cscore values in the test set can be explained by the predictors in the model.
-
-#the MSE on the test set is much higher than the MSE on the training set, which 
-#may suggest that the LASSO model is overfitting to the training data.
-
-#To further evaluate if overfitting is an issue, you can also plot the predicted 
-#values versus the actual values for both the training and test sets.
-#If the plot for the test set shows a more scattered pattern than the plot 
-#for the training set, this may also indicate overfitting. 
-par(mfrow = c(1,2))
-plot(y_train, y_train_pred, main = "Training set")
-abline(0,1)
-plot(y_test, y_test_pred, main = "Test set")
-abline(0,1)
 
 #The first panel will show the predicted values versus the actual values for 
 #the training set, and the second panel will show the same for the test set. 
@@ -366,6 +356,22 @@ bestlam ## Select lamda that minimizes training MSE
 min(lasso.cv$cvm)
 # bestlam = 0.55 results in the smallest cross-validation error 651
 
+lambda_1se.loocv <- lasso.cv$lambda.1se
+lambda_1se.loocv
+#9.11
+
+min(lasso.cv$cvm)
+#651
+
+# Get the index of the lambda with the minimum CVM
+lambda_idx_loocv <- which.min(lasso.cv$cvm) 
+lambda_idx
+
+# Get the CVSD for the lambda with the minimum CVM
+cvsd.loocv <- lasso.cv$cvsd[lambda_idx_loocv ] 
+cvsd.loocv
+#146
+
 
 # Prediction and evaluation on test data
 lasso.pred=predict(lasso_mod_loocv,s=bestlam,newx=x_test)
@@ -376,6 +382,19 @@ lasso.pred.train=predict(lasso_mod_loocv,s=bestlam,newx=x_train)
 mean((lasso.pred.train-y_train)^2)
 # the training MSE = 465.29
 
+
+
+# Calculate the MSE on the training set
+y_train_pred_se.loocv <- predict(lasso_mod_loocv,s=lambda_1se , newx = x_train)
+mse_train_se.loocv <- mean((y_train_pred_se.loocv - y_train)^2)
+mse_train_se.loocv 
+#655
+# Calculate the MSE on the test set
+y_test_pred_se.loocv <- predict(lasso_mod_loocv,s=lambda_1se , newx = x_test)
+mse_test_se.loocv <- mean((y_test_pred_se.loocv - y_test)^2)
+mse_test_se.loocv
+#844
+
 out.loocv=glmnet(omit_data[,-1],omit_data$Cscore, alpha =1, lambda =grid)
 
 # Generate standardized LASSO coefficients
@@ -385,9 +404,20 @@ lasso.coef.loocv <- coef(out.loocv, s = bestlam,
 lasso.coef.loocv
 
 library(plotmo)
-plot_glmnet(out, label = TRUE, s = bestlam, xlim = c(10, -5), main="Leave One Out Cross Validation")
+plot_glmnet(out, label = TRUE, s = bestlam, xlim = c(10, -5), main="Leave-One-Out-Cross-Validation")
 
 #lcavol:-3.969890
+
+##1- se lambda 
+
+# Generate standardized LASSO coefficients
+lasso.se.coef.loocv<- predict(out, s = lambda_1se, type = "coefficients",
+                                      standardize = TRUE)[1:8,]
+lasso.se.coef.loocv
+#only 3 variables left (svi, lcp,lpsa)
+library(plotmo)
+plot_glmnet(out, label = TRUE, s = lambda_1se, xlim = c(10, -5), main="Leave-One-Out-Cross-Validation", add = TRUE)
+
 
 library(ggplot2)
 ggplot(data = omit_data, aes(x = lcavol, y = Cscore)) +
@@ -414,11 +444,22 @@ cor(omit_data$lcavol, omit_data$Cscore)
 
 set.seed(1)
 dim(omit_data)
-train_index <- sample(nrow(omit_data), nrow(omit_data) * 2/3) 
+#will be different if use 1/2
+train_index <- sample(nrow(omit_data), nrow(omit_data)*2/3) 
 train <- omit_data[train_index, ]
 test <- omit_data[-train_index, ]
 par(mfrow=c(1,1))
 pairs(omit_data)
+
+###best subset selection
+library(leaps)
+bestSub <- regsubsets(Cscore ~ ., train, nvmax = ncol(train)-1)
+bestSub_summary <- summary(bestSub)
+bestSub_summary
+plot(bestSub_summary$bic,type="b", ylab="BIC", xlab="Number of Predictors", main="Best Subset Selection")
+points(which.min(bestSub_summary$bic),bestSub_summary$bic[which.min(bestSub_summary$bic)], col ="red",cex =2, pch =20) 
+plot(bestSub,scale ="bic", main="Best Subset Selection")
+coef(bestSub, 4)
 
 #A. Split the data, and forward stepwise selection
 
@@ -465,7 +506,9 @@ msegam2
 
 #reduce df
 gam3=gam(Cscore~ lcavol + lcp +s(lpsa,3),data=train) 
+par(mfrow=c(1,3))
 plot(gam3,se=TRUE,col="purple")
+
 summary(gam3)
 predgam3 = predict(gam3, newdata=test) 
 msegam3 = mean((predgam3-test$Cscore)^2)
