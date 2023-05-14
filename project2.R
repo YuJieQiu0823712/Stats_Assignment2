@@ -236,14 +236,14 @@ par(mfrow =c(1,1))
 plot(lasso_fit,main="10 fold Cross Validation")
 lambda_best <- lasso_fit$lambda.min
 lambda_best
-#0.404
+#0.7
 lambda_1se <- lasso_fit$lambda.1se
 lambda_1se 
-#7.93
+#9.1
 #much higher than best lambda, means that we expect the coefficients under 1se
 #to be much smaller or exactly zero
 min(lasso_fit$cvm)
-#620
+#643
 
 # Get the index of the lambda with the minimum CVM
 lambda_idx <- which.min(lasso_fit$cvm) 
@@ -261,12 +261,12 @@ cvsd
 y_train_pred <- predict(lasso_mod,s=lambda_best, newx = x_train)
 mse_train <- mean((y_train_pred - y_train)^2)
 mse_train 
-#390
+#468
 # Calculate the MSE on the test set
 y_test_pred <- predict(lasso_mod,s=lambda_best, newx = x_test)
 mse_test <- mean((y_test_pred - y_test)^2)
 mse_test
-#729
+#750
 
 
 # Get the index of lambda_1se in the lambda sequence
@@ -275,21 +275,21 @@ lambda_1se_index
 # Get the cvm and cvd values for lambda_1se
 cvm_lambda_1se <- lasso_fit$cvm[lambda_1se_index]
 cvm_lambda_1se
-#725
+#787
 cvd_lambda_1se <- lasso_fit$cvsd[lambda_1se_index]
 cvd_lambda_1se
-#144
+#277
 
 # Calculate the MSE on the training set
 y_train_pred_se <- predict(lasso_mod,s=lambda_1se , newx = x_train)
 mse_train_se <- mean((y_train_pred_se - y_train)^2)
 mse_train_se 
-#568
+#655
 # Calculate the MSE on the test set
 y_test_pred_se <- predict(lasso_mod,s=lambda_1se , newx = x_test)
 mse_test_se <- mean((y_test_pred_se - y_test)^2)
 mse_test_se
-#836
+#844
 
 
 
