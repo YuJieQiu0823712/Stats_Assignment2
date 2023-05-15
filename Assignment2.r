@@ -36,7 +36,8 @@ summarise(data, mean(Cscore), median(Cscore), n=n(), sd(Cscore))
 
 ## histograms: shape of Cscore distribution
 par(mfrow=c(1,1))
-hist(data$Cscore, prob = TRUE,col = 'red',xlab='Cscore',main='Histogram of Cscore', ylim=c(0,0.02))
+hist(data$Cscore, prob = TRUE,col = 'red',xlab='Cscore',
+     main='Histogram of Cscore',ylim=c(0,0.02))
 lines(density(data$Cscore))
 shapiro.test(data$Cscore) # p<0.05 => not normal distribution
 
@@ -44,7 +45,8 @@ shapiro.test(data$Cscore) # p<0.05 => not normal distribution
 # by_svi: Cscore are significantly different between group 0 and 1.
 by_svi <- group_by(data, svi)
 summarise(by_svi, n=n(), mean(Cscore), sd(Cscore), var(Cscore))
-boxplot(Cscore ~ svi, data = data,col = 'red',main='Comparison of Cscore level between svi group', ylab = "Cscore")
+boxplot(Cscore ~ svi, data = data,col = 'red',
+        main='Comparison of Cscore level between svi group', ylab = "Cscore")
 
 data.wilcox <- wilcox.test(data$Cscore ~ data$svi) 
 data.wilcox # p<0.05 =>  two populations have different continuous distribution
@@ -77,6 +79,7 @@ vif(data.lm.all)
 ## Residual plot
 #To evaluate the effect of any influential points or outliers, 
 #we can examine influential plot and diagnostic plots of the model.
+
 par(mfrow=c(2,3))
 influencePlot(data.lm.all)
 plot(data.lm.all) 
@@ -132,7 +135,8 @@ best <- regsubsets(Cscore~.,data=omit_data)
 bestSUM <- summary(best)
 
 par(mfrow=c(1,2))
-plot(bestSUM$bic,type="b",ylab="BIC",main ="Best Subset Selection")
+plot(bestSUM$bic,type="b",ylab="BIC",
+     main ="Best Subset Selection")
 points(2,bestSUM$bic[2], col ="red",cex =2, pch =20) 
 plot(best, scale="bic",main ="Best Subset Selection")
 which.min(bestSUM$bic)
@@ -183,7 +187,7 @@ set.seed(1)
 train <- sample(c(TRUE, FALSE), nrow(omit_data ), rep=TRUE)
 test <- (!train)
 
-#apply regsubsets() to the training set in order to perform best subset selection
+#apply regsubsets() to the training set to perform best subset selection
 regfit.best <- regsubsets(Cscore~., data = omit_data [train,], nvmax=7)
 
 #compare the validation set error
@@ -197,8 +201,10 @@ for(i in 1:7){
 }
 val.errors
 par(mfrow =c(1,1))
-plot(val.errors, type="b", xlab="Number of Predictors", ylab="Validation Set Error",main="Validation Set Errors")
-points(which.min(val.errors), val.errors[which.min(val.errors)], col = "red", cex = 2, pch = 20)
+plot(val.errors, type="b", xlab="Number of Predictors", 
+     ylab="Validation Set Error",main="Validation Set Errors")
+points(which.min(val.errors), val.errors[which.min(val.errors)],
+       col = "red", cex = 2, pch = 20)
 which.min(val.errors)
 coef(regfit.best, 1)
 
@@ -219,6 +225,7 @@ predict.regsubsets =function (object ,newdata ,id ,...){
   mat[,xvars ]%*% coefi
 }
 
+## 10-fold cross validation
 set.seed(1)
 k=10
 folds=sample(1:k, nrow(omit_data), replace=TRUE)
@@ -238,8 +245,11 @@ which.min(mean.cv.errors)
 #2
 
 par(mfrow =c(1,1))
-plot(mean.cv.errors,xlab="Number of Predictors", ylab="10-fold Cross-Validation Error", main="Cross-Validation Errors", type="b")
-points(which.min(mean.cv.errors), mean.cv.errors[which.min(mean.cv.errors)], col = "red", cex = 2, pch = 20)
+plot(mean.cv.errors,xlab="Number of Predictors", 
+     ylab="10-fold Cross-Validation Error", 
+     main="Cross-Validation Errors", type="b")
+points(which.min(mean.cv.errors), mean.cv.errors[which.min(mean.cv.errors)], 
+       col = "red", cex = 2, pch = 20)
 
 #use full model
 regfit.best <- regsubsets(Cscore~., data=omit_data, nvmax=7)
@@ -257,7 +267,9 @@ coef(regfit.best, 2)
 ## 3 Make an appropriate LASSO model, with the appropriate link and error function, and
 ## evaluate the prediction performance. Do you see evidence that over-learning is an issue?
 #evaluate the prediction performance of the LASSO model using
-#the test set and calculate the mean squared error (MSE). 
+#the test set and calculate the mean squared error (MSE).
+
+#LASSO 
 set.seed(1)
 train_index <- sample(nrow(omit_data), nrow(omit_data) * 2/3) 
 train <- omit_data[train_index, ]
@@ -277,17 +289,16 @@ plot(lasso_fit,main="10 fold Cross Validation")
 ## lambda.min
 lambda_best <- lasso_fit$lambda.min
 lambda_best
-min(lasso_fit$cvm)
-# lambda_best = 0.7 results in the smallest cross-validation error 643
+# lambda_best = 0.7
 
-
-## Get the index of the lambda with the minimum CVM (cross-validation error mean)
+## Get the index of the lambda with the minimum CVM 
+# (cross-validation error mean)
 lambda_idx <- which.min(lasso_fit$cvm) 
 lambda_idx
 # Get the CVM for the lambda with the minimum CVM
 cvm <- lasso_fit$cvm[lambda_idx] 
-cvm  #643.2
-# Get the CVSD (standard deviation) for the lambda with the minimum CVM
+cvm  #smallest cross-validation error 643.2
+# Get the CVSD (standard deviation) with the minimum CVM
 cvsd <- lasso_fit$cvsd[lambda_idx] 
 cvsd #155.03
 
@@ -312,7 +323,8 @@ lasso.coef.standardized <- coef(out, s = lambda_best,
                                 x = x_train, y = y_train, 
                                 standardize = TRUE)[1:8,]
 lasso.coef.standardized 
-#==> Cscore = -20.13 -3.09lcavol -2.79lweight -1.66lbph +11.53svi +7.03lcp +22.38lpsa +irreduciable error
+#==> Cscore = -20.13 -3.09lcavol -2.79lweight -1.66lbph +
+#     11.53svi +7.03lcp +22.38lpsa +irreduciable error
 
 
 
@@ -329,22 +341,25 @@ y_train <- train$Cscore
 x_test <- model.matrix(Cscore ~ ., test)[,-1]
 y_test <- test$Cscore
 
+### Lasso regression with LOOCV ###
 lasso_mod_loocv <- glmnet(x_train, y_train, alpha =1, lambda =grid)
-lasso.cv=cv.glmnet(x_train, y_train,alpha=1, nfolds=96) # 96-fold cross validation
-plot(lasso.cv, ylim = c(500, 2000), main="Leave One Out Cross Validation") 
+lasso.cv=cv.glmnet(x_train, y_train,alpha=1, nfolds=96) 
+# 96-fold cross validation
+plot(lasso.cv, ylim = c(500, 2000), 
+     main="Leave One Out Cross Validation") 
 
 bestlam<-lasso.cv$lambda.min
 bestlam ## Select lamda that minimizes training MSE
 #0.55
 min(lasso.cv$cvm)
-# bestlam = 0.56 results in the smallest cross-validation error 651
+# bestlam = 0.56
 
 ## Get the index of the lambda with the minimum CVM (cross-validation error mean)
 lambda_idx <- which.min(lasso.cv$cvm) 
 lambda_idx
 # Get the CVM for the lambda with the minimum CVM
 cvm <- lasso.cv$cvm[lambda_idx] 
-cvm  #651
+cvm  #smallest cross-validation error 651
 # Get the CVSD (standard deviation) for the lambda with the minimum CVM
 cvsd <- lasso.cv$cvsd[lambda_idx] 
 cvsd #146
@@ -373,9 +388,9 @@ lasso.coef.loocv
 #### lambda_best_se (10-fold CV) ####
 lambda_1se <- lasso_fit$lambda.1se
 lambda_1se
-min(lasso_fit$cvm)
-# lambda_best_se = 9.1 results in the smallest cross-validation error 643
-# =>much higher than lambda_best, means that we expect the coefficients under 1se
+# lambda_best_se = 9.1
+# =>much higher than lambda_best, 
+#   means that we expect the coefficients under 1se
 #   to be much smaller or exactly zero
 
 ## Get the index of lambda_1se in the lambda sequence
@@ -494,6 +509,7 @@ lasso.coef.standardized <- coef(out, s = lambda_best, x = x_train, y = y_train, 
 lasso.coef.standardized #lcavol:-3.09
 
 plot_glmnet(out, label = TRUE, s = lambda_best, xlim = c(10, -5), main="10-fold Cross-Validation")
+
 #The coefficient for "lcavol" in the LASSO model is -3. 
 #This means that a one-unit increase in the natural log of the "lcavol" 
 #(luminal volume) is associated with a -3 unit decrease in the Cscore,
@@ -505,6 +521,8 @@ lasso.se.coef.standardized <- predict(out, s = lambda_1se, type = "coefficients"
 lasso.se.coef.standardized #only 3 variables left (svi, lcp,lpsa)
 
 plot_glmnet(out, label = TRUE, s = lambda_1se , xlim = c(10, -5), main="10-fold Cross-Validation",add = TRUE)
+
+
 #The first panel will show the predicted values versus the actual values for 
 #the training set, and the second panel will show the same for the test set. 
 #The abline(0,1) function adds a reference line to the plot with a slope of 1
@@ -541,6 +559,7 @@ ggplot(data = omit_data, aes(x = lcavol, y = Cscore)) +
 
 model <- lm(Cscore ~ lcavol, data = omit_data)
 summary(model)
+
 #0.3138 The R-squared value measures the proportion of variance in the 
 #response variable that is explained by the predictor variable. 
 #A higher R-squared value indicates a stronger relationship between the
@@ -599,7 +618,8 @@ mselm1
 gam1=gam(Cscore~ s(lcavol,4) +s(lbph,4)+ s(lcp,4)+s(lpsa,4),data=train) 
 par(mfrow=c(2,2))
 plot(gam1,se=TRUE,col="purple")
-summary(gam1)#only lpsa seems to have non-linear effect, lbph is not significant
+summary(gam1)
+#only lpsa seems to have non-linear effect, lbph is not significant
 predgam = predict(gam1, newdata=test) 
 msegam1 = mean((predgam-test$Cscore)^2)
 msegam1
@@ -663,7 +683,8 @@ mselm4 = mean((predlm4-test$Cscore)^2)
 mselm4
 #324
 
-anova(lm1,lm2,lm3, lm4) #choose lm4
+anova(lm1,lm2,lm3, lm4) 
+#lm4 significantly different, choose lm3
 
 
 ## polynomial transformation with lpsa variable
@@ -723,15 +744,6 @@ lines(sort(omit_data$lpsa),
 
 
 # Draw polynomial regression curve
-#lcp
-my_mod_lcp <- lm(Cscore ~ lcp, data = omit_data)
-summary(my_mod_lcp) 
-plot(Cscore ~ lcp, omit_data , main="Cscore vs lcp") 
-lines(sort(omit_data$lcp),      
-      fitted(my_mod_lcp)[order(omit_data$lcp)],
-      col = "red",
-      type = "l")
-
 #lpsa
 my_mod_lpsa <- lm(Cscore ~ poly(lpsa, 2, raw=TRUE), data = omit_data)
 summary(my_mod_lpsa) 
