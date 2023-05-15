@@ -700,7 +700,7 @@ anova(poly.lm,poly.lm2)
 
 
 
-## Visualizing of the linear model(Question2) and non-linear model (Polynomial) 
+## Visualization of the linear model(Question2) and non-linear model (Polynomial) 
 # Draw regression curve
 par(mfrow=c(2,2))
 #lcp
@@ -735,7 +735,7 @@ lines(sort(omit_data$lcp),
 #lpsa
 my_mod_lpsa <- lm(Cscore ~ poly(lpsa, 2, raw=TRUE), data = omit_data)
 summary(my_mod_lpsa) 
-plot(Cscore ~ lpsa, omit_data, main="Cscore vs lpsa (qudratic)") 
+plot(Cscore ~ lpsa, omit_data, main="Cscore vs lpsa (quadratic)") 
 lines(sort(omit_data$lpsa),      
       fitted(my_mod_lpsa)[order(omit_data$lpsa)],
       col = "red",
